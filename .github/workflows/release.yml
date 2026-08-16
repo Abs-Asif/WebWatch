@@ -32,15 +32,17 @@ jobs:
 
       - name: Generate Demo Keystore
         run: |
-          keytool -genkeypair -v \
-            -keystore app/demo.keystore \
-            -alias demokey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass demopass \
-            -keypass demopass \
-            -dname "CN=WebWatch, OU=Development, O=WebWatch, L=Dhaka, C=BD"
+          if [ ! -f app/demo.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore app/demo.keystore \
+              -alias demokey \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass demopass \
+              -keypass demopass \
+              -dname "CN=WebWatch, OU=Development, O=WebWatch, L=Dhaka, C=BD"
+          fi
 
       - name: Build Release APK
         run: ./gradlew assembleRelease

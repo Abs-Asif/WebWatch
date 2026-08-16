@@ -1,0 +1,68 @@
+name: Build and Release WebWatch APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x gradlew
+
+      - name: Generate Demo Keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore app/demo.keystore \
+            -alias demokey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass demopass \
+            -keypass demopass \
+            -dname "CN=WebWatch, OU=Development, O=WebWatch, L=Dhaka, C=BD"
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Sign Release APK
+        run: |
+          ANDROID_SDK_ROOT=$ANDROID_HOME
+          BUILD_TOOLS_DIR=$(ls -d $ANDROID_SDK_ROOT/build-tools/* | tail -n 1)
+          APK_PATH=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+
+          if [ -f "$APK_PATH" ]; then
+            $BUILD_TOOLS_DIR/apksigner sign --ks app/demo.keystore --ks-pass pass:demopass --key-pass pass:demopass --out app/build/outputs/apk/release/release.apk "$APK_PATH"
+          fi
+
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          files: app/build/outputs/apk/release/release.apk
+          tag_name: release-${{ github.sha }}
+          name: WebWatch Release ${{ github.sha }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
